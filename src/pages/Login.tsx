@@ -15,25 +15,34 @@ export default function Login() {
     setStatus('loading')
     setErrorMsg('')
 
-    if (mode === 'signin') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setStatus('error')
-        setErrorMsg(error.message)
+    try {
+      if (mode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
+          setStatus('error')
+          setErrorMsg(error.message)
+        }
+        // se ok, l'AuthProvider rileva la sessione e la app naviga da sola
+      } else {
+        const { data, error } = await supabase.auth.signUp({ email, password })
+        if (error) {
+          setStatus('error')
+          setErrorMsg(error.message)
+          return
+        }
+        if (data.session) {
+          // conferma email disattivata sul progetto: sei già dentro
+          return
+        }
+        setStatus('signup-done')
       }
-      // se ok, l'AuthProvider rileva la sessione e la app naviga da sola
-    } else {
-      const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) {
-        setStatus('error')
-        setErrorMsg(error.message)
-        return
-      }
-      if (data.session) {
-        // conferma email disattivata sul progetto: sei già dentro
-        return
-      }
-      setStatus('signup-done')
+    } catch (err) {
+      setStatus('error')
+      setErrorMsg(
+        err instanceof Error
+          ? `Errore di rete: ${err.message}. Controlla VITE_SUPABASE_URL nel file .env.`
+          : 'Errore di rete sconosciuto.'
+      )
     }
   }
 
