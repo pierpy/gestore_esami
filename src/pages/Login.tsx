@@ -1,24 +1,39 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 
+type Mode = 'signin' | 'signup'
+
 export default function Login() {
+  const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'signup-done' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setStatus('sending')
+    setStatus('loading')
     setErrorMsg('')
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    })
-    if (error) {
-      setStatus('error')
-      setErrorMsg(error.message)
+
+    if (mode === 'signin') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setStatus('error')
+        setErrorMsg(error.message)
+      }
+      // se ok, l'AuthProvider rileva la sessione e la app naviga da sola
     } else {
-      setStatus('sent')
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        setStatus('error')
+        setErrorMsg(error.message)
+        return
+      }
+      if (data.session) {
+        // conferma email disattivata sul progetto: sei già dentro
+        return
+      }
+      setStatus('signup-done')
     }
   }
 
@@ -26,11 +41,17 @@ export default function Login() {
     <div className="auth-screen">
       <div className="auth-card">
         <h1>Gestore Esami</h1>
-        <p className="muted">Accedi con la tua email universitaria per gestire corsi e voti.</p>
-        {status === 'sent' ? (
+        <p className="muted">
+          {mode === 'signin'
+            ? 'Accedi con email e password per gestire corsi e voti.'
+            : 'Crea il tuo account docente (serve solo la prima volta).'}
+        </p>
+
+        {status === 'signup-done' ? (
           <p className="success">
-            Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Apri l'email dallo
-            stesso dispositivo per entrare.
+            Account creato. Se il progetto Supabase richiede la conferma email, apri il link che
+            ti abbiamo inviato a <strong>{email}</strong>; altrimenti torna alla schermata di
+            accesso e inserisci email e password.
           </p>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -43,12 +64,38 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <button type="submit" disabled={status === 'sending'}>
-              {status === 'sending' ? 'Invio in corso...' : 'Invia link di accesso'}
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              required
+              minLength={6}
+              placeholder={mode === 'signup' ? 'almeno 6 caratteri' : ''}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button type="submit" disabled={status === 'loading'}>
+              {status === 'loading'
+                ? 'Attendere...'
+                : mode === 'signin'
+                  ? 'Accedi'
+                  : 'Crea account'}
             </button>
             {status === 'error' && <p className="error">{errorMsg}</p>}
           </form>
         )}
+
+        <button
+          className="link-btn"
+          style={{ marginTop: '0.75rem' }}
+          onClick={() => {
+            setMode(mode === 'signin' ? 'signup' : 'signin')
+            setStatus('idle')
+            setErrorMsg('')
+          }}
+        >
+          {mode === 'signin' ? 'Non hai un account? Creane uno' : 'Hai già un account? Accedi'}
+        </button>
       </div>
     </div>
   )

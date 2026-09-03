@@ -24,10 +24,15 @@ Struttura dati (`supabase/schema.sql`): `courses` (corso + anno accademico) →
 2. Nel progetto, apri **SQL Editor**, incolla il contenuto di
    `supabase/schema.sql` ed eseguilo: crea tabelle, indici e le policy di
    Row Level Security (ogni docente vede solo i propri corsi).
-3. In **Authentication → Providers** verifica che *Email* sia abilitato. Per
-   semplicità l'app usa il login "magic link" (nessuna password da
-   ricordare): l'utente riceve un'email con un link di accesso.
+3. In **Authentication → Providers** verifica che *Email* sia abilitato. L'app
+   usa login con email + password (niente link da controllare via mail ad
+   ogni accesso). Se in **Authentication → Settings** hai "Confirm email"
+   attivo, la prima registrazione richiede di aprire una mail di conferma;
+   dopodiché gli accessi successivi sono solo email+password.
 4. In **Project Settings → API** copia `Project URL` e `anon public key`.
+5. La prima volta che apri l'app, usa "Non hai un account? Creane uno" per
+   creare il tuo account docente con una password a scelta (serve solo la
+   prima volta: dopo resta salvato sul dispositivo).
 
 ## 2. Configurare l'app
 
