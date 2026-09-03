@@ -11,6 +11,8 @@ export interface Appello {
   course_id: string
   nome: string
   data: string
+  mcq_num_domande: number | null
+  mcq_num_opzioni: number
   created_at: string
 }
 

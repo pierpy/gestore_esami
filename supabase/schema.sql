@@ -19,8 +19,16 @@ create table if not exists public.appelli (
   course_id uuid not null references public.courses(id) on delete cascade,
   nome text not null,
   data date not null default current_date,
+  -- configurazione griglia risposte a scelta multipla per il template stampabile
+  -- (null/0 domande = nessuna griglia per questo appello)
+  mcq_num_domande integer,
+  mcq_num_opzioni integer not null default 4,
   created_at timestamptz not null default now()
 );
+
+-- Migrazione per progetti già esistenti: aggiunge le colonne se mancanti.
+alter table public.appelli add column if not exists mcq_num_domande integer;
+alter table public.appelli add column if not exists mcq_num_opzioni integer not null default 4;
 
 -- Studenti iscritti a un corso
 create table if not exists public.students (
