@@ -1,14 +1,22 @@
 import { useState, type FormEvent } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
 
 type Mode = 'signin' | 'signup'
 
 export default function Login() {
+  const { session } = useAuth()
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'signup-done' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+
+  if (session) {
+    // login riuscito (o sessione già presente): esci dalla pagina di login
+    return <Navigate to="/" replace />
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
