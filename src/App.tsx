@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes, Link, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/AuthContext'
 import { supabase } from './lib/supabase'
+import Logo from './components/Logo'
 import Login from './pages/Login'
 import Courses from './pages/Courses'
 import CourseDetail from './pages/CourseDetail'
@@ -25,6 +26,7 @@ function Header() {
   return (
     <header className="app-header">
       <Link to="/" className="brand">
+        <Logo />
         Gestore Esami
       </Link>
       <button className="link-btn" onClick={() => supabase.auth.signOut()}>

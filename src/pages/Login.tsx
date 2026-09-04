@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
+import Logo from '../components/Logo'
 
 type Mode = 'signin' | 'signup'
 
@@ -57,6 +58,7 @@ export default function Login() {
   return (
     <div className="auth-screen">
       <div className="auth-card">
+        <Logo size="lg" />
         <h1>Gestore Esami</h1>
         <p className="muted">
           {mode === 'signin'

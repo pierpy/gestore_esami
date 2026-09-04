@@ -4,6 +4,29 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import type { Course } from '../types'
 
+const AVATAR_GRADIENTS = [
+  ['#7c6cf6', '#a855f7'],
+  ['#38bdf8', '#6366f1'],
+  ['#f472b6', '#a855f7'],
+  ['#34d399', '#0ea5e9'],
+  ['#fbbf24', '#f472b6'],
+  ['#f87171', '#a855f7'],
+]
+
+function courseInitials(nome: string): string {
+  const words = nome.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[1][0]).toUpperCase()
+}
+
+function courseGradient(seed: string): string {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  const [from, to] = AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]
+  return `linear-gradient(135deg, ${from}, ${to})`
+}
+
 function currentAccademicYear() {
   const now = new Date()
   const y = now.getFullYear()
@@ -105,16 +128,37 @@ export default function Courses() {
         </div>
       ) : (
         Object.entries(grouped).map(([anno, list]) => (
-          <div key={anno} style={{ marginBottom: '1.25rem' }}>
-            <h3 style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: '0 0 0.5rem' }}>
+          <div key={anno} style={{ marginBottom: '1.5rem' }}>
+            <h3
+              style={{
+                display: 'inline-block',
+                color: 'var(--muted)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                margin: '0 0 0.6rem',
+                padding: '0.2rem 0.6rem',
+                borderRadius: 999,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-soft)',
+              }}
+            >
               {anno}
             </h3>
             <div className="card-list">
               {list.map((c) => (
                 <Link key={c.id} to={`/corsi/${c.id}`} className="card-link">
                   <div className="card">
-                    <div className="card-title">{c.nome}</div>
-                    <div className="card-sub">Anno accademico {c.anno_accademico}</div>
+                    <div className="card-body">
+                      <div className="course-avatar" style={{ background: courseGradient(c.id) }}>
+                        {courseInitials(c.nome)}
+                      </div>
+                      <div>
+                        <div className="card-title">{c.nome}</div>
+                        <div className="card-sub">Anno accademico {c.anno_accademico}</div>
+                      </div>
+                    </div>
                   </div>
                 </Link>
               ))}
