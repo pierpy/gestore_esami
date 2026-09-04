@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { parseEsse3Roster } from '../lib/importEsse3'
+import { exportAppelloToExcel } from '../lib/exportExcel'
+import { computeMedia } from '../lib/grades'
 import type { Appello, Course, Grade, Student } from '../types'
 
 export default function CourseDetail() {
@@ -33,6 +35,8 @@ export default function CourseDetail() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+
+  const [exporting, setExporting] = useState(false)
 
   async function loadAll() {
     if (!courseId) return
@@ -272,6 +276,19 @@ export default function CourseDetail() {
     })
   }
 
+  async function handleExport() {
+    if (!course || !activeAppello) return
+    setExporting(true)
+    setError('')
+    try {
+      await exportAppelloToExcel(course, activeAppello, students, gradeByStudent)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore durante l'esportazione.")
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) return <p className="muted">Caricamento...</p>
   if (!course) return <p className="error">Corso non trovato.</p>
 
@@ -373,6 +390,13 @@ export default function CourseDetail() {
             >
               {importing ? 'Importazione...' : 'Importa da Esse3 (.xls)'}
             </button>
+            <button
+              className="btn secondary"
+              disabled={exporting || students.length === 0}
+              onClick={handleExport}
+            >
+              {exporting ? 'Esportazione...' : 'Esporta in Excel'}
+            </button>
             {selectedIds.size > 0 && (
               <button className="btn danger" disabled={deleting} onClick={handleDeleteSelected}>
                 {deleting
@@ -434,6 +458,7 @@ export default function CourseDetail() {
                     <th>Scritto</th>
                     <th>Lode</th>
                     <th>Orale</th>
+                    <th>Media</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -492,6 +517,8 @@ function GradeRow({
     lode !== (grade?.lode ?? false) ||
     orale !== (grade?.voto_orale?.toString() ?? '')
 
+  const media = computeMedia(scritto === '' ? null : Number(scritto), orale === '' ? null : Number(orale))
+
   return (
     <tr>
       <td>
@@ -525,6 +552,9 @@ function GradeRow({
           onChange={(e) => setOrale(e.target.value)}
           placeholder="—"
         />
+      </td>
+      <td className="muted" style={{ fontWeight: 600, color: media != null ? 'var(--text)' : undefined }}>
+        {media ?? '—'}
       </td>
       <td>
         <button
