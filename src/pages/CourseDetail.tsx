@@ -441,7 +441,7 @@ export default function CourseDetail() {
               Nessuno studente in questo corso. Aggiungilo manualmente o scansiona un compito.
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div className="grades-scroll">
               <table className="grades">
                 <thead>
                   <tr>
@@ -521,7 +521,7 @@ function GradeRow({
 
   return (
     <tr>
-      <td>
+      <td className="cell-select">
         <input
           type="checkbox"
           checked={selected}
@@ -529,12 +529,14 @@ function GradeRow({
           aria-label={`Seleziona ${student.cognome} ${student.nome}`}
         />
       </td>
-      <td>
+      <td className="cell-student">
         {student.cognome} {student.nome}
         {grade?.scansionato && <span className="grade-pill ok" style={{ marginLeft: 6 }}>scansionato</span>}
       </td>
-      <td className="muted">{student.matricola ?? '—'}</td>
-      <td>
+      <td className="muted" data-label="Matricola">
+        {student.matricola ?? '—'}
+      </td>
+      <td data-label="Scritto">
         <input
           inputMode="decimal"
           value={scritto}
@@ -542,10 +544,10 @@ function GradeRow({
           placeholder="—"
         />
       </td>
-      <td>
+      <td data-label="Lode">
         <input type="checkbox" checked={lode} onChange={(e) => setLode(e.target.checked)} />
       </td>
-      <td>
+      <td data-label="Orale">
         <input
           inputMode="decimal"
           value={orale}
@@ -553,10 +555,14 @@ function GradeRow({
           placeholder="—"
         />
       </td>
-      <td className="muted" style={{ fontWeight: 600, color: media != null ? 'var(--text)' : undefined }}>
+      <td
+        className="muted"
+        data-label="Media"
+        style={{ fontWeight: 600, color: media != null ? 'var(--text)' : undefined }}
+      >
         {media ?? '—'}
       </td>
-      <td>
+      <td className="cell-action">
         <button
           className="btn small"
           disabled={!dirty || saving}
