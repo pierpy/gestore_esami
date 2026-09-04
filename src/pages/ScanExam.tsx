@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Cropper, { type Area } from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
-import { decodeQrFromDataUrl, getCroppedImageDataUrl } from '../lib/cropImage'
+import {
+  decodeQrFromDataUrl,
+  downscaleImageDataUrl,
+  getCroppedImageDataUrl,
+  readFileAsDataUrl,
+} from '../lib/cropImage'
 import { recognizeText } from '../lib/ocr'
 import type { Appello, Course, Student } from '../types'
 
@@ -31,6 +36,9 @@ export default function ScanExam() {
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [courseAppelli, setCourseAppelli] = useState<Appello[]>([])
   const [students, setStudents] = useState<Student[]>([])
+
+  const [processingFile, setProcessingFile] = useState(false)
+  const [fileError, setFileError] = useState('')
 
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -95,13 +103,22 @@ export default function ScanExam() {
   const stepIndex = STEPS.indexOf(step === 'done' ? 'confirm' : step)
 
   async function handleFile(file: File) {
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const dataUrl = reader.result as string
+    setFileError('')
+    setProcessingFile(true)
+    try {
+      const rawDataUrl = await readFileAsDataUrl(file)
+      const dataUrl = await downscaleImageDataUrl(rawDataUrl)
       setPhotoDataUrl(dataUrl)
       setStep('identify')
-      const qrText = await decodeQrFromDataUrl(dataUrl)
+
+      let qrText: string | null = null
+      try {
+        qrText = await decodeQrFromDataUrl(dataUrl)
+      } catch {
+        // decodifica QR fallita: si procede comunque con selezione manuale
+      }
       if (!qrText) return
+
       try {
         const parsed = JSON.parse(qrText) as unknown
         if (typeof parsed !== 'object' || parsed === null) return
@@ -130,8 +147,15 @@ export default function ScanExam() {
       } catch {
         // QR non compatibile: si procede con selezione manuale
       }
+    } catch (err) {
+      setFileError(
+        err instanceof Error
+          ? `Non sono riuscito a leggere la foto (${err.message}). Riprova, magari con un'altra foto.`
+          : 'Non sono riuscito a leggere la foto. Riprova.'
+      )
+    } finally {
+      setProcessingFile(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // Recupera il nome dello studente riconosciuto dal QR personale, appena disponibile
@@ -266,6 +290,7 @@ export default function ScanExam() {
 
   function startOver() {
     setPhotoDataUrl(null)
+    setFileError('')
     setQrFound(false)
     setQrStudentId(null)
     setQrStudentName(null)
@@ -308,11 +333,13 @@ export default function ScanExam() {
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleFile(file)
+              e.target.value = ''
             }}
           />
-          <button className="btn" onClick={() => fileInputRef.current?.click()}>
-            Scatta / carica foto
+          <button className="btn" disabled={processingFile} onClick={() => fileInputRef.current?.click()}>
+            {processingFile ? 'Elaborazione foto in corso...' : 'Scatta / carica foto'}
           </button>
+          {fileError && <p className="error">{fileError}</p>}
         </div>
       )}
 

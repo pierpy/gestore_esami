@@ -1,13 +1,40 @@
 import type { Area } from 'react-easy-crop'
 
-function createImage(url: string): Promise<HTMLImageElement> {
+export function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (err) => reject(err))
-    image.crossOrigin = 'anonymous'
+    image.addEventListener('error', () => reject(new Error('Immagine non leggibile')))
     image.src = url
   })
+}
+
+/** Legge un File come data URL, con gestione esplicita degli errori (niente fallimenti silenziosi). */
+export function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('Errore di lettura del file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Ridimensiona le foto troppo grandi (le fotocamere dei telefoni producono spesso
+ * immagini da 8-12+ megapixel) prima di elaborarle: più veloce e più affidabile
+ * per la decodifica del QR, il ritaglio e l'OCR su dispositivi meno potenti.
+ */
+export async function downscaleImageDataUrl(dataUrl: string, maxDim = 1800): Promise<string> {
+  const image = await createImage(dataUrl)
+  if (Math.max(image.width, image.height) <= maxDim) return dataUrl
+  const scale = maxDim / Math.max(image.width, image.height)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(image.width * scale)
+  canvas.height = Math.round(image.height * scale)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return dataUrl
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', 0.85)
 }
 
 /** Ritaglia l'immagine sorgente secondo l'area (in pixel) e restituisce una dataURL PNG. */
