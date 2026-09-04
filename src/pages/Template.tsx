@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { supabase } from '../lib/supabase'
-import type { Appello, Course, ExamQrPayload } from '../types'
+import type { Appello, AppelloQrPayload, Course } from '../types'
 
 const NAME_BOXES = 26
 const GRADE_BOXES = 2
@@ -106,7 +106,13 @@ export default function Template() {
       const appelloData = a as Appello
       setNumDomande(appelloData?.mcq_num_domande ?? 0)
       setNumOpzioni(appelloData?.mcq_num_opzioni ?? 4)
-      const payload: ExamQrPayload = { app: 'gestore-esami', v: 1, courseId, appelloId }
+      const payload: AppelloQrPayload = {
+        app: 'gestore-esami',
+        v: 2,
+        kind: 'appello',
+        courseId,
+        appelloId,
+      }
       const url = await QRCode.toDataURL(JSON.stringify(payload), { margin: 1, width: 140 })
       setQrDataUrl(url)
     }
@@ -170,6 +176,14 @@ export default function Template() {
           {mcqSaved && <span className="success">Salvata</span>}
         </div>
       </div>
+
+      <p className="muted no-print" style={{ margin: '0.5rem 0' }}>
+        Consiglio: se hai già stampato le{' '}
+        <Link to={`/corsi/${course.id}/etichette`}>etichette QR personali degli studenti</Link>,
+        usa quelle invece di far scrivere il nome a mano — sono riconosciute all'istante e non
+        richiedono nessuna lettura OCR. Il riquadro Cognome/Nome qui sotto resta come ripiego per
+        chi non ha ancora un'etichetta.
+      </p>
 
       <div className="toolbar no-print">
         <label className="field" style={{ maxWidth: 200 }}>

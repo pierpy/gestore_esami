@@ -42,7 +42,31 @@ export interface GradeWithStudent extends Grade {
   student: Student
 }
 
-export interface ExamQrPayload {
+// QR "appello": identifica corso+appello, usato sul template generico
+// (fallback per studenti senza ancora un'etichetta personale).
+export interface AppelloQrPayload {
+  app: 'gestore-esami'
+  v: 2
+  kind: 'appello'
+  courseId: string
+  appelloId: string
+}
+
+// QR "studente": identifica corso+studente in modo permanente, riutilizzabile
+// per tutti gli appelli del corso — nessuna scrittura a mano da leggere.
+export interface StudentQrPayload {
+  app: 'gestore-esami'
+  v: 2
+  kind: 'studente'
+  courseId: string
+  studentId: string
+}
+
+export type ExamQrPayload = AppelloQrPayload | StudentQrPayload
+
+// Compat: i QR stampati prima dell'introduzione di "kind" (v1) avevano solo
+// courseId+appelloId senza il campo kind.
+export interface LegacyAppelloQrPayload {
   app: 'gestore-esami'
   v: 1
   courseId: string

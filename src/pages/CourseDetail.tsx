@@ -215,6 +215,9 @@ export default function CourseDetail() {
             >
               Stampa template compiti
             </Link>
+            <Link className="btn secondary" to={`/corsi/${course.id}/etichette`}>
+              Etichette QR studenti
+            </Link>
             <button
               className="btn"
               onClick={() =>

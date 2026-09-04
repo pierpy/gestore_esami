@@ -8,6 +8,7 @@ import CourseDetail from './pages/CourseDetail'
 
 const Template = lazy(() => import('./pages/Template'))
 const ScanExam = lazy(() => import('./pages/ScanExam'))
+const StudentLabels = lazy(() => import('./pages/StudentLabels'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -62,6 +63,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Template />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/corsi/:courseId/etichette"
+            element={
+              <ProtectedRoute>
+                <StudentLabels />
               </ProtectedRoute>
             }
           />
