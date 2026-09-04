@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { parseEsse3Roster } from '../lib/importEsse3'
 import type { Appello, Course, Grade, Student } from '../types'
 
 export default function CourseDetail() {
@@ -25,6 +26,10 @@ export default function CourseDetail() {
 
   const [savingRow, setSavingRow] = useState<string | null>(null)
   const [error, setError] = useState('')
+
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   async function loadAll() {
     if (!courseId) return
@@ -112,6 +117,76 @@ export default function CourseDetail() {
     setNome('')
     setShowStudentForm(false)
     setStudents((prev) => [...prev, data as Student].sort((a, b) => a.cognome.localeCompare(b.cognome)))
+  }
+
+  async function handleImportFile(file: File) {
+    if (!courseId) return
+    setImporting(true)
+    setImportMsg('')
+    setError('')
+    try {
+      const rows = await parseEsse3Roster(file)
+      if (rows.length === 0) {
+        setImportMsg('Nessuno studente trovato nel file.')
+        return
+      }
+
+      const studentPayload = rows.map((r) => ({
+        course_id: courseId,
+        matricola: r.matricola,
+        cognome: r.cognome,
+        nome: r.nome,
+      }))
+      const { data: upserted, error: upsertError } = await supabase
+        .from('students')
+        .upsert(studentPayload, { onConflict: 'course_id,matricola' })
+        .select()
+      if (upsertError) throw upsertError
+      const upsertedStudents = (upserted as Student[]) ?? []
+
+      setStudents((prev) => {
+        const map = new Map(prev.map((s) => [s.id, s]))
+        upsertedStudents.forEach((s) => map.set(s.id, s))
+        return Array.from(map.values()).sort((a, b) => a.cognome.localeCompare(b.cognome))
+      })
+
+      let importedGrades = 0
+      if (activeAppelloId) {
+        const idByMatricola = new Map(
+          upsertedStudents.filter((s) => s.matricola).map((s) => [s.matricola as string, s.id])
+        )
+        const gradeRows = rows
+          .filter((r) => r.voto && r.matricola && idByMatricola.has(r.matricola))
+          .map((r) => ({
+            appello_id: activeAppelloId,
+            student_id: idByMatricola.get(r.matricola as string)!,
+            voto_scritto: r.voto!.punteggio,
+            lode: r.voto!.lode,
+          }))
+        if (gradeRows.length > 0) {
+          const { data: upsertedGrades, error: gradeError } = await supabase
+            .from('grades')
+            .upsert(gradeRows, { onConflict: 'appello_id,student_id' })
+            .select()
+          if (gradeError) throw gradeError
+          const newGrades = (upsertedGrades as Grade[]) ?? []
+          importedGrades = newGrades.length
+          setGrades((prev) => {
+            const others = prev.filter((g) => !newGrades.some((n) => n.student_id === g.student_id))
+            return [...others, ...newGrades]
+          })
+        }
+      }
+
+      setImportMsg(
+        `${upsertedStudents.length} studenti importati/aggiornati` +
+          (importedGrades > 0 ? `, ${importedGrades} voti importati dall'Esito` : '')
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore durante l'importazione del file.")
+    } finally {
+      setImporting(false)
+    }
   }
 
   async function saveGrade(
@@ -229,7 +304,33 @@ export default function CourseDetail() {
             <button className="btn secondary" onClick={() => setShowStudentForm((s) => !s)}>
               {showStudentForm ? 'Annulla' : '+ Studente'}
             </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xls,.xlsx"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleImportFile(file)
+                e.target.value = ''
+              }}
+            />
+            <button
+              className="btn secondary"
+              disabled={importing}
+              onClick={() => importInputRef.current?.click()}
+            >
+              {importing ? 'Importazione...' : 'Importa da Esse3 (.xls)'}
+            </button>
           </div>
+
+          <p className="muted" style={{ marginTop: '-0.5rem' }}>
+            "Importa da Esse3" legge il file "Elenco Studenti Iscritti all'Appello" (.xls) e
+            aggiunge/aggiorna gli studenti del corso; se la colonna Esito è già valorizzata,
+            importa anche i voti nell'appello selezionato.
+          </p>
+
+          {importMsg && <p className="success">{importMsg}</p>}
 
           {showStudentForm && (
             <form className="inline-form row" onSubmit={handleCreateStudent}>
