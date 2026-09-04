@@ -37,6 +37,7 @@ export default function CourseDetail() {
   const [deleting, setDeleting] = useState(false)
 
   const [exporting, setExporting] = useState(false)
+  const [deletingAppello, setDeletingAppello] = useState(false)
 
   async function loadAll() {
     if (!courseId) return
@@ -105,6 +106,31 @@ export default function CourseDetail() {
     setShowAppelloForm(false)
     setAppelli((prev) => [data as Appello, ...prev])
     setActiveAppelloId((data as Appello).id)
+  }
+
+  async function handleDeleteAppello() {
+    if (!activeAppelloId) return
+    const current = appelli.find((a) => a.id === activeAppelloId)
+    if (!current) return
+    const confirmed = window.confirm(
+      `Eliminare definitivamente l'appello "${current.nome}"? Verranno cancellati anche tutti i voti registrati in questo appello (gli studenti del corso restano). L'operazione non è reversibile.`
+    )
+    if (!confirmed) return
+
+    setDeletingAppello(true)
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('appelli').delete().eq('id', current.id)
+      if (deleteError) throw deleteError
+      const remaining = appelli.filter((a) => a.id !== current.id)
+      setAppelli(remaining)
+      setGrades([])
+      setActiveAppelloId(remaining.length > 0 ? remaining[0].id : null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore durante l'eliminazione dell'appello.")
+    } finally {
+      setDeletingAppello(false)
+    }
   }
 
   async function handleCreateStudent(e: FormEvent) {
@@ -318,6 +344,14 @@ export default function CourseDetail() {
           + Appello
         </button>
       </div>
+
+      {activeAppelloId && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button className="btn small danger" disabled={deletingAppello} onClick={handleDeleteAppello}>
+            {deletingAppello ? 'Eliminazione...' : "Elimina questo appello"}
+          </button>
+        </div>
+      )}
 
       {showAppelloForm && (
         <form className="inline-form row" onSubmit={handleCreateAppello}>
