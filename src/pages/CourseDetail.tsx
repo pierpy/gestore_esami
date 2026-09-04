@@ -31,6 +31,9 @@ export default function CourseDetail() {
   const [importMsg, setImportMsg] = useState('')
   const importInputRef = useRef<HTMLInputElement>(null)
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
+
   async function loadAll() {
     if (!courseId) return
     setLoading(true)
@@ -51,6 +54,7 @@ export default function CourseDetail() {
     setCourse(courseData as Course)
     setAppelli((appelliData as Appello[]) ?? [])
     setStudents((studentsData as Student[]) ?? [])
+    setSelectedIds(new Set())
     if (appelliData && appelliData.length > 0) {
       setActiveAppelloId((prev) => prev ?? appelliData[0].id)
     }
@@ -189,6 +193,53 @@ export default function CourseDetail() {
     }
   }
 
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    const label =
+      ids.length === 1
+        ? students.find((s) => s.id === ids[0])
+          ? `${students.find((s) => s.id === ids[0])!.cognome} ${students.find((s) => s.id === ids[0])!.nome}`
+          : 'questo studente'
+        : `questi ${ids.length} studenti`
+    const confirmed = window.confirm(
+      `Eliminare definitivamente ${label}? Verranno cancellati anche tutti i voti registrati per ${
+        ids.length === 1 ? 'lui/lei' : 'loro'
+      } in questo corso. L'operazione non è reversibile.`
+    )
+    if (!confirmed) return
+
+    setDeleting(true)
+    setError('')
+    try {
+      const { error: deleteError } = await supabase.from('students').delete().in('id', ids)
+      if (deleteError) throw deleteError
+      setStudents((prev) => prev.filter((s) => !selectedIds.has(s.id)))
+      setGrades((prev) => prev.filter((g) => !selectedIds.has(g.student_id)))
+      setSelectedIds(new Set())
+      setImportMsg('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore durante l'eliminazione.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function toggleSelect(studentId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(studentId)) next.delete(studentId)
+      else next.add(studentId)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === students.length ? new Set() : new Set(students.map((s) => s.id))
+    )
+  }
+
   async function saveGrade(
     studentId: string,
     patch: Partial<Pick<Grade, 'voto_scritto' | 'lode' | 'voto_orale'>>
@@ -322,6 +373,13 @@ export default function CourseDetail() {
             >
               {importing ? 'Importazione...' : 'Importa da Esse3 (.xls)'}
             </button>
+            {selectedIds.size > 0 && (
+              <button className="btn danger" disabled={deleting} onClick={handleDeleteSelected}>
+                {deleting
+                  ? 'Eliminazione...'
+                  : `Elimina selezionati (${selectedIds.size})`}
+              </button>
+            )}
           </div>
 
           <p className="muted" style={{ marginTop: '-0.5rem' }}>
@@ -363,6 +421,14 @@ export default function CourseDetail() {
               <table className="grades">
                 <thead>
                   <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={students.length > 0 && selectedIds.size === students.length}
+                        onChange={toggleSelectAll}
+                        aria-label="Seleziona tutti"
+                      />
+                    </th>
                     <th>Studente</th>
                     <th>Matricola</th>
                     <th>Scritto</th>
@@ -380,6 +446,8 @@ export default function CourseDetail() {
                         student={s}
                         grade={g}
                         saving={savingRow === s.id}
+                        selected={selectedIds.has(s.id)}
+                        onToggleSelect={() => toggleSelect(s.id)}
                         onSave={(patch) => saveGrade(s.id, patch)}
                       />
                     )
@@ -398,11 +466,15 @@ function GradeRow({
   student,
   grade,
   saving,
+  selected,
+  onToggleSelect,
   onSave,
 }: {
   student: Student
   grade: Grade | undefined
   saving: boolean
+  selected: boolean
+  onToggleSelect: () => void
   onSave: (patch: Partial<Pick<Grade, 'voto_scritto' | 'lode' | 'voto_orale'>>) => void
 }) {
   const [scritto, setScritto] = useState(grade?.voto_scritto?.toString() ?? '')
@@ -422,6 +494,14 @@ function GradeRow({
 
   return (
     <tr>
+      <td>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          aria-label={`Seleziona ${student.cognome} ${student.nome}`}
+        />
+      </td>
       <td>
         {student.cognome} {student.nome}
         {grade?.scansionato && <span className="grade-pill ok" style={{ marginLeft: 6 }}>scansionato</span>}
